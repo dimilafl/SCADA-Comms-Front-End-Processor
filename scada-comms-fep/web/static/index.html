@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SCADA Comms Front-End Diagnostics</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SCADA Comms Front-End Diagnostics</h1>
+    <div id="queue-summary">
+      Queue depth: <span id="queue-depth">0</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Endpoint Health</h2>
+      <div class="table-wrapper">
+        <table id="endpoint-table">
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Health</th>
+              <th>Last Poll</th>
+              <th>RTT (ms)</th>
+              <th>Failures</th>
+              <th>Queue Depth</th>
+              <th>Last Fault</th>
+            </tr>
+          </thead>
+          <tbody id="endpoint-body">
+            <tr>
+              <td colspan="7" class="no-data">Waiting for data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Recent Point Updates</h2>
+      <div class="table-wrapper">
+        <table id="points-table">
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Point</th>
+              <th>Value</th>
+              <th>Quality</th>
+              <th>Server TS</th>
+              <th>Device TS</th>
+            </tr>
+          </thead>
+          <tbody id="points-body">
+            <tr>
+              <td colspan="6" class="no-data">Waiting for data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <span id="connection-status" class="status-disconnected">●</span>
+      <span id="connection-text">Connecting...</span>
+    </p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

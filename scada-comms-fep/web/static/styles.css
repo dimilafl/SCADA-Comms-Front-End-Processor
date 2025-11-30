@@ -1,0 +1,236 @@
+/* SCADA FEP Diagnostics - Dark Theme Styles */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #0b1015;
+  color: #e0e4ea;
+  line-height: 1.6;
+}
+
+header {
+  padding: 1rem 1.5rem;
+  background: #111823;
+  border-bottom: 2px solid #222b35;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 600;
+  color: #5fd38a;
+}
+
+#queue-summary {
+  font-size: 0.95rem;
+  color: #a0a8b0;
+  font-weight: 500;
+}
+
+#queue-depth {
+  color: #5fd38a;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+section {
+  background: #111823;
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid #222b35;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #c8cdd5;
+  border-bottom: 1px solid #222b35;
+  padding-bottom: 0.5rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid #1a2229;
+}
+
+th {
+  font-weight: 600;
+  background: #161e29;
+  color: #a8b2c0;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+}
+
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+tbody tr:nth-child(even) {
+  background: #141b26;
+}
+
+tbody tr:hover {
+  background: #1a2330;
+}
+
+td {
+  color: #d0d6de;
+}
+
+.no-data {
+  text-align: center;
+  color: #6a7380;
+  font-style: italic;
+  padding: 2rem !important;
+}
+
+/* Health status colors */
+.health-HEALTHY {
+  color: #5fd38a;
+  font-weight: 700;
+}
+
+.health-DEGRADED {
+  color: #ffd166;
+  font-weight: 700;
+}
+
+.health-COMM_LOSS {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
+/* Quality colors */
+.quality-GOOD {
+  color: #5fd38a;
+}
+
+.quality-UNCERTAIN {
+  color: #ffd166;
+}
+
+.quality-STALE {
+  color: #ff9f66;
+}
+
+.quality-COMM_LOSS,
+.quality-BAD {
+  color: #ff6b6b;
+}
+
+.quality-FORCED {
+  color: #8b66ff;
+}
+
+/* Footer with connection status */
+footer {
+  padding: 1rem 1.5rem;
+  background: #111823;
+  border-top: 1px solid #222b35;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6a7380;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+#connection-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.status-connected {
+  color: #5fd38a !important;
+}
+
+.status-disconnected {
+  color: #ff6b6b !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  main {
+    padding: 1rem;
+  }
+
+  table {
+    font-size: 0.8rem;
+  }
+
+  th,
+  td {
+    padding: 0.4rem 0.5rem;
+  }
+}
+
+/* Add some bottom padding to main to account for footer */
+main {
+  padding-bottom: 4rem;
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b1015;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222b35;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3542;
+}

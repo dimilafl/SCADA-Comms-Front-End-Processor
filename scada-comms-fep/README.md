@@ -11,7 +11,8 @@ This FEP demonstrates:
 - **Communications State Management**: Endpoint health tracking (HEALTHY, DEGRADED, COMM_LOSS)
 - **Async Polling Engine**: Concurrent polling of multiple endpoints with retries and timeouts
 - **Dispatcher Pattern**: Queue-based decoupling for downstream consumers
-- **Real-time Diagnostics**: Live console showing endpoint health, RTT, and failures
+- **Real-time Diagnostics**: Live console and web UI showing endpoint health, RTT, and failures
+- **Web Dashboard**: FastAPI + WebSocket UI for browser-based monitoring
 - **Virtual Endpoints**: Configurable RTU/PLC simulators with latency, jitter, and packet loss
 
 ## Architecture
@@ -45,8 +46,13 @@ scada-comms-fep/
 │   └── dispatcher.py      # Update queue and pub/sub
 ├── ui/
 │   └── console.py         # Real-time diagnostics console
+├── web/                    # Web UI
+│   ├── state.py           # Web state manager
+│   ├── server.py          # FastAPI app with WebSocket support
+│   └── static/            # HTML, CSS, JS
 ├── examples/
-│   └── run_demo.py        # Complete demo application
+│   ├── run_demo.py        # Console demo application
+│   └── run_web_demo.py    # Web UI demo application
 ├── tests/
 │   ├── test_protocol.py   # Protocol tests
 │   ├── test_quality.py    # Quality classification tests
@@ -133,13 +139,32 @@ Decoupling layer:
 
 ### 7. Diagnostics Console (`ui/console.py`)
 
-Real-time display showing:
+Real-time terminal display showing:
 
 - Endpoint health (color-coded)
 - Last poll timestamp
 - Round-trip time (RTT)
 - Consecutive failures
 - Queue depth
+
+### 8. Web Dashboard (`web/`)
+
+Browser-based real-time monitoring:
+
+- **State Manager** (`state.py`): Maintains diagnostics snapshot and point history
+- **FastAPI Server** (`server.py`): REST API + WebSocket endpoints
+- **Web UI** (`static/`): HTML/CSS/JS dashboard with:
+  - Endpoint health table with color-coded status
+  - Live point updates feed
+  - WebSocket auto-reconnect
+  - Dark theme optimized for control room displays
+
+**API Endpoints:**
+- `GET /`: Web dashboard
+- `GET /api/diagnostics`: Current endpoint states (JSON)
+- `GET /api/points`: Recent point history (JSON)
+- `WS /ws/diagnostics`: Real-time diagnostics updates
+- `WS /ws/points`: Real-time point updates
 
 ## Running the Demo
 
@@ -168,6 +193,29 @@ Watch the real-time console to see:
 - RTU_3: Frequently DEGRADED (yellow) or COMM_LOSS (red)
 
 Press `Ctrl+C` to exit.
+
+### Run Web UI Demo
+
+For a browser-based real-time dashboard:
+
+```bash
+# Install web dependencies
+pip install 'fastapi>=0.104.0' 'uvicorn[standard]>=0.24.0'
+
+# Run web demo
+cd scada-comms-fep
+python examples/run_web_demo.py
+```
+
+Then open **http://localhost:8000** in your browser.
+
+The web UI provides:
+- **Endpoint Health Table**: Real-time status, RTT, failures, health state (color-coded)
+- **Point Updates Feed**: Live stream of point values with quality flags
+- **WebSocket Updates**: Sub-second latency for diagnostics and data
+- **REST API**: `/api/diagnostics` and `/api/points` endpoints
+
+The web demo starts the same three endpoints as the console version with identical behavior.
 
 ### Run Tests
 
