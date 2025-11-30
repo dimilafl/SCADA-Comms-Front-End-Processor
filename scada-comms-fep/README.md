@@ -1,100 +1,128 @@
-# SCADA Communications Front-End Processor (FEP)
+# SCADA Comms Front-End Simulator
 
-A lightweight, demonstration-grade SCADA Front-End Processor built in Python with asyncio. This project showcases industrial communications patterns, quality classification, polling strategies, and real-time diagnostics.
+A virtual SCADA front-end processor (FEP) built in Python with asyncio that demonstrates industrial communications patterns **without real hardware or industrial protocols**. This is a teaching and portfolio project that simulates the behavior of real FEPs (OASyS gateways, Ignition drivers, SEL RTAC poll loops) using simple TCP servers and a JSON line protocol. It showcases the complete data flow: **ingest → validate → normalize → dispatch**.
 
-## Overview
+## Why this exists
 
-This FEP demonstrates:
+This project fills the gap between:
+- **PLC logic emulators** (ladder logic simulators, IEC 61131 execution)
+- **Point lifecycle / historian / alarm simulators** (process data consumers)
 
-- **Protocol Abstraction**: Simple JSON-over-TCP protocol for point polling
-- **Quality Classification**: SCADA-style quality flags (GOOD, UNCERTAIN, STALE, COMM_LOSS, FORCED)
-- **Communications State Management**: Endpoint health tracking (HEALTHY, DEGRADED, COMM_LOSS)
-- **Async Polling Engine**: Concurrent polling of multiple endpoints with retries and timeouts
-- **Dispatcher Pattern**: Queue-based decoupling for downstream consumers
-- **Real-time Diagnostics**: Live console and web UI showing endpoint health, RTT, and failures
-- **Web Dashboard**: FastAPI + WebSocket UI for browser-based monitoring
-- **Virtual Endpoints**: Configurable RTU/PLC simulators with latency, jitter, and packet loss
+It mirrors real-world SCADA FEP systems:
+- **OASyS / Ignition gateways** polling field RTUs
+- **AVEVA / Wonderware drivers** managing protocol stacks
+- **SEL RTAC poll loops** aggregating substations
+- **DCS communication processors** bridging field networks
+
+It focuses on industrial communication patterns often overlooked in demos:
+- **Polling loops** with configurable intervals, timeouts, retries
+- **Comms quality → SCADA quality flags** (GOOD/UNCERTAIN/BAD/COMM_LOSS/STALE)
+- **Timestamp handling** (server timestamps, device timestamps, drift detection)
+- **Queue and dispatch behavior** (decoupling ingest from downstream consumers)
+- **Endpoint health tracking** (RTT monitoring, failure counting, state machines)
+
+## Features
+
+- **Virtual RTUs / PLC endpoints**
+  Async TCP servers exposing analog/digital points over a JSON line pseudo-protocol with configurable latency, jitter, and packet loss.
+
+- **Polling engine**
+  Scheduled polls per endpoint with independent intervals, timeouts, retry logic, and per-endpoint runtime state tracking.
+
+- **Quality model**
+  Maps communications state (HEALTHY/DEGRADED/COMM_LOSS) to SCADA quality flags (GOOD/UNCERTAIN/BAD/COMM_LOSS/STALE/FORCED) based on sample age and endpoint health.
+
+- **Timestamp normalization**
+  Tracks both server timestamps (FEP time) and optional device timestamps (RTU/PLC time) with drift detection hooks.
+
+- **Queue + dispatcher**
+  Async queue with publish-subscribe pattern feeding downstream consumers (point lifecycle simulator, historian, alarm engine).
+
+- **Diagnostics console**
+  Terminal UI summarizing endpoint health, round-trip times, consecutive failures, and queue depth with ANSI color coding.
+
+- **Web dashboard**
+  FastAPI + WebSocket UI showing live endpoint health table and real-time point updates feed with sub-second latency.
 
 ## Architecture
 
 ```
-Virtual RTUs/PLCs (endpoint_sim.py)
-         ↓
-    TCP Protocol (protocol.py)
-         ↓
-   Polling Engine (poller.py) ← Quality Model (quality.py)
-         ↓
-    Dispatcher (dispatcher.py)
-         ↓
-    ┌────────┬──────────┬────────────┐
-    ↓        ↓          ↓            ↓
-Historian  Lifecycle  Alarms    Diagnostics
-           Simulator              (console.py)
+                    ┌─────────────────────────────────────┐
+                    │  Virtual RTUs / PLCs                │
+                    │  (endpoint_sim.py)                  │
+                    │  - TCP servers on ports 9001-900N   │
+                    │  - Simulate latency, jitter, drops  │
+                    │  - Expose analog/digital points     │
+                    └──────────────┬──────────────────────┘
+                                   │
+                        JSON-over-TCP (pseudo protocol)
+                                   │
+                                   ▼
+                    ┌─────────────────────────────────────┐
+                    │  Polling Engine                     │
+                    │  (poller.py)                        │
+                    │  - Per-endpoint poll loops          │
+                    │  - Timeout + retry logic            │
+                    │  - RTT tracking                     │
+                    │  - Failure counting                 │
+                    └──────────────┬──────────────────────┘
+                                   │
+                        PointValue updates (with quality)
+                                   │
+                    ┌──────────────▼──────────────────────┐
+                    │  Quality Model                      │
+                    │  (quality.py)                       │
+                    │  CommsState → QualityFlag           │
+                    │  - HEALTHY → GOOD                   │
+                    │  - DEGRADED → UNCERTAIN             │
+                    │  - COMM_LOSS → COMM_LOSS            │
+                    │  - Sample age → STALE               │
+                    └──────────────┬──────────────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────────────┐
+                    │  Dispatcher Queue                   │
+                    │  (dispatcher.py)                    │
+                    │  - Async queue (max depth: 1000)    │
+                    │  - Pub/sub pattern                  │
+                    └──────────────┬──────────────────────┘
+                                   │
+                    ┌──────────────┴──────────────────────┐
+                    │                                     │
+                    ▼                                     ▼
+        ┌───────────────────────┐         ┌──────────────────────────┐
+        │ Diagnostics Console   │         │  Web Dashboard           │
+        │ (ui/console.py)       │         │  (web/)                  │
+        │ - Terminal UI         │         │  - FastAPI + WebSocket   │
+        │ - Endpoint health     │         │  - Browser UI            │
+        │ - RTT, failures       │         │  - Live updates          │
+        └───────────────────────┘         └──────────────────────────┘
+                    │
+                    │ (optional integration seams)
+                    │
+                    ▼
+        ┌──────────────────────────────────────────────┐
+        │  Downstream Consumers (not in this repo)     │
+        ├──────────────────────────────────────────────┤
+        │  - Point lifecycle simulator                 │
+        │  - Historian writer (e.g., TimescaleDB)      │
+        │  - Alarm engine                              │
+        │  - Trending / analytics                      │
+        └──────────────────────────────────────────────┘
 ```
 
-## Project Structure
+## Pseudo-protocol (no Modbus / DNP3 / OPC UA)
 
-```
-scada-comms-fep/
-├── fep/                    # Core FEP modules
-│   ├── models.py          # Data models (PointValue, PointDef, QualityFlag)
-│   ├── quality.py         # Quality classification logic
-│   ├── timebase.py        # Timestamp utilities
-│   ├── protocol.py        # Protocol encode/decode
-│   ├── endpoint_sim.py    # Virtual endpoint simulator
-│   ├── poller.py          # Polling engine
-│   └── dispatcher.py      # Update queue and pub/sub
-├── ui/
-│   └── console.py         # Real-time diagnostics console
-├── web/                    # Web UI
-│   ├── state.py           # Web state manager
-│   ├── server.py          # FastAPI app with WebSocket support
-│   └── static/            # HTML, CSS, JS
-├── examples/
-│   ├── run_demo.py        # Console demo application
-│   └── run_web_demo.py    # Web UI demo application
-├── tests/
-│   ├── test_protocol.py   # Protocol tests
-│   ├── test_quality.py    # Quality classification tests
-│   └── test_polling_loop.py # Integration tests
-├── pyproject.toml
-└── README.md
-```
+**IMPORTANT:** This project does **NOT** use Modbus, DNP3, OPC UA, IEC 60870-5-104, or any vendor protocol stacks.
 
-## Key Components
+It uses a **simple JSON line protocol** defined inside this repository for demonstration purposes only. The protocol is intentionally minimal to focus on FEP behavior (polling, quality, dispatch) rather than protocol parsing complexity.
 
-### 1. Data Models (`fep/models.py`)
-
-Defines the core data structures:
-
-- **PointAddress**: Unique identifier (endpoint_id + point_name)
-- **PointDef**: Point definition with metadata (type, units, description)
-- **QualityFlag**: Enum for quality states
-- **PointValue**: Complete update package with value, quality, timestamps
-
-### 2. Quality Model (`fep/quality.py`)
-
-Implements SCADA-style quality classification:
-
-- **CommsState**: HEALTHY → DEGRADED → COMM_LOSS transitions
-- **classify_comms_state()**: Maps failures and timeouts to endpoint health
-- **classify_point_quality()**: Maps health + sample age to quality flags
-
-Configurable thresholds:
-- `stale_threshold`: How old before STALE (default: 10s)
-- `comm_loss_threshold`: How long before COMM_LOSS (default: 30s)
-- `degraded_retry_threshold`: How many failures before DEGRADED (default: 2)
-
-### 3. Protocol (`fep/protocol.py`)
-
-Simple text-based protocol:
-
-**Poll Request (FEP → Endpoint)**:
+**Poll Request (FEP → Endpoint):**
 ```json
 {"type": "poll", "request_id": "uuid", "points": ["PT_101", "RUN_FB"]}
 ```
 
-**Poll Response (Endpoint → FEP)**:
+**Poll Response (Endpoint → FEP):**
 ```json
 {
   "type": "poll_response",
@@ -109,233 +137,286 @@ Simple text-based protocol:
 }
 ```
 
-### 4. Endpoint Simulator (`fep/endpoint_sim.py`)
+The protocol is **newline-terminated JSON** over TCP. Each endpoint is a simple async server that:
+- Accepts connections
+- Reads poll requests (one per line)
+- Simulates configurable latency + jitter
+- Optionally drops packets to simulate unreliable networks
+- Returns point values with sequence numbers and device timestamps
 
-Virtual RTU/PLC with configurable behavior:
+## Installation
 
-- Base latency + jitter
-- Packet drop probability
-- Device clock drift
-- Point value variations
-
-### 5. Polling Engine (`fep/poller.py`)
-
-Core FEP component:
-
-- Concurrent polling loops per endpoint
-- Retry logic with configurable max retries
-- Timeout handling
-- Quality classification integration
-- Runtime state tracking (RTT, failures, health)
-- Diagnostics callbacks
-
-### 6. Dispatcher (`fep/dispatcher.py`)
-
-Decoupling layer:
-
-- Async queue for point updates
-- Publish-subscribe pattern
-- Integration hooks for historian, lifecycle sim, alarms
-
-### 7. Diagnostics Console (`ui/console.py`)
-
-Real-time terminal display showing:
-
-- Endpoint health (color-coded)
-- Last poll timestamp
-- Round-trip time (RTT)
-- Consecutive failures
-- Queue depth
-
-### 8. Web Dashboard (`web/`)
-
-Browser-based real-time monitoring:
-
-- **State Manager** (`state.py`): Maintains diagnostics snapshot and point history
-- **FastAPI Server** (`server.py`): REST API + WebSocket endpoints
-- **Web UI** (`static/`): HTML/CSS/JS dashboard with:
-  - Endpoint health table with color-coded status
-  - Live point updates feed
-  - WebSocket auto-reconnect
-  - Dark theme optimized for control room displays
-
-**API Endpoints:**
-- `GET /`: Web dashboard
-- `GET /api/diagnostics`: Current endpoint states (JSON)
-- `GET /api/points`: Recent point history (JSON)
-- `WS /ws/diagnostics`: Real-time diagnostics updates
-- `WS /ws/points`: Real-time point updates
-
-## Running the Demo
-
-### Install Dependencies
+### Using pip
 
 ```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install pytest pytest-asyncio
+pip install fastapi 'uvicorn[standard]'  # For web UI
 ```
 
-### Run Demo Application
+### Using uv (recommended)
 
 ```bash
-cd scada-comms-fep
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install from pyproject.toml
+uv pip install .
+uv pip install '.[dev]'  # Development dependencies (pytest)
+uv pip install '.[web]'  # Web UI dependencies (fastapi, uvicorn)
+```
+
+### From pyproject.toml
+
+If you prefer to install all dependencies at once:
+
+```bash
+uv pip install '.[dev,web]'
+```
+
+## Running the console diagnostics demo
+
+The console demo starts virtual RTUs and displays real-time endpoint diagnostics in the terminal.
+
+```bash
 python examples/run_demo.py
 ```
 
-The demo starts three virtual endpoints:
+**What it does:**
+- Starts 3 virtual RTU endpoints on ports 9001-9003
+  - RTU_1: Low latency, 2% packet loss (mostly HEALTHY)
+  - RTU_2: Moderate latency, 5% packet loss, 500ms clock drift
+  - RTU_3: High latency, 30% packet loss (frequently DEGRADED/COMM_LOSS)
+- Starts the polling engine with independent poll rates per endpoint
+- Displays a terminal UI refreshing every second
 
-1. **RTU_1**: Healthy, low latency (30ms), 2% packet loss
-2. **RTU_2**: Higher latency (100ms), 5% packet loss, 500ms clock drift
-3. **RTU_3**: Unreliable, high latency (200ms), 30% packet loss (shows DEGRADED/COMM_LOSS)
-
-Watch the real-time console to see:
-- RTU_1: Stays HEALTHY (green)
-- RTU_2: Mostly HEALTHY with occasional UNCERTAIN
-- RTU_3: Frequently DEGRADED (yellow) or COMM_LOSS (red)
+**What to look for:**
+- **Changing RTT**: Round-trip time varies with jitter
+- **Failure counts**: Consecutive failures increment when polls timeout
+- **Health transitions**: Watch endpoints transition between:
+  - `HEALTHY` (green) - Normal operation
+  - `DEGRADED` (yellow) - Experiencing retries but still connecting
+  - `COMM_LOSS` (red) - Cannot reach endpoint
+- **Queue depth**: Number of point update batches waiting in dispatcher queue
+- **Last fault**: Error message from most recent failure (timeout, connection refused, etc.)
 
 Press `Ctrl+C` to exit.
 
-### Run Web UI Demo
+## Running the web dashboard
 
-For a browser-based real-time dashboard:
+For a browser-based real-time monitoring interface:
 
 ```bash
-# Install web dependencies
-pip install 'fastapi>=0.104.0' 'uvicorn[standard]>=0.24.0'
+# Make sure web dependencies are installed
+pip install fastapi 'uvicorn[standard]'
 
 # Run web demo
-cd scada-comms-fep
 python examples/run_web_demo.py
 ```
 
 Then open **http://localhost:8000** in your browser.
 
-The web UI provides:
-- **Endpoint Health Table**: Real-time status, RTT, failures, health state (color-coded)
-- **Point Updates Feed**: Live stream of point values with quality flags
-- **WebSocket Updates**: Sub-second latency for diagnostics and data
-- **REST API**: `/api/diagnostics` and `/api/points` endpoints
+**What it does:**
+- Starts the same 3 virtual RTU endpoints as the console demo
+- Starts the polling engine + dispatcher
+- Starts a FastAPI server on port 8000 with WebSocket support
 
-The web demo starts the same three endpoints as the console version with identical behavior.
+**Web UI features:**
+- **Top summary**: Displays current dispatcher queue depth
+- **Endpoint health table**: Shows for each endpoint:
+  - Health status (color-coded: green/yellow/red)
+  - Last poll timestamp
+  - Round-trip time (RTT) in milliseconds
+  - Consecutive failure count
+  - Queue depth
+  - Last fault message
+- **Point updates feed**: Rolling list of recent point value updates showing:
+  - Endpoint ID
+  - Point name
+  - Current value
+  - Quality flag (GOOD/UNCERTAIN/STALE/COMM_LOSS/etc.)
+  - Server timestamp
+  - Device timestamp (from RTU/PLC)
+- **Real-time updates**: WebSocket connections provide sub-second latency
+- **Auto-reconnect**: If connection drops, automatically reconnects after 2 seconds
 
-### Run Tests
+**API endpoints:**
+- `GET /` - Web dashboard UI
+- `GET /api/diagnostics` - Current endpoint states (JSON snapshot)
+- `GET /api/points` - Recent point update history (JSON)
+- `WS /ws/diagnostics` - WebSocket for real-time diagnostics
+- `WS /ws/points` - WebSocket for real-time point updates
+
+Press `Ctrl+C` to stop the server.
+
+## How this fits with other SCADA projects
+
+This FEP simulator provides the **communications and normalization layer** between:
+
+1. **Upstream: PLC logic emulators**
+   - IEC 61131 ladder logic simulators
+   - Process simulation (tank levels, valve positions, pump states)
+   - Device-level control logic
+
+2. **Downstream: Process data consumers**
+   - **Point lifecycle simulators** (value changes, state transitions)
+   - **Historian / time-series databases** (InfluxDB, TimescaleDB, Cassandra)
+   - **Alarm engines** (limit monitoring, alarm state machines, notification)
+   - **Trending and analytics** (process optimization, ML models)
+
+**Integration seams:**
+
+The dispatcher provides a clean integration point via the `PointValue` model:
+
+```python
+@dataclass
+class PointValue:
+    definition: PointDef        # Point metadata (address, type, units)
+    value: float | bool         # Current value
+    quality: QualityFlag        # GOOD/UNCERTAIN/STALE/etc.
+    server_ts: datetime         # FEP timestamp (UTC)
+    device_ts: datetime | None  # RTU/PLC timestamp (optional)
+    source: str                 # "POLL" / "MANUAL" / "SIM"
+    sequence_num: int | None    # Sequence number for duplicate detection
+```
+
+**Example downstream integration:**
+
+```python
+from fep.dispatcher import Dispatcher
+
+async def my_historian_writer(updates: list[PointValue]):
+    for point in updates:
+        if point.quality == QualityFlag.GOOD:
+            await store_to_timeseries_db(
+                point.definition.address,
+                point.value,
+                point.server_ts
+            )
+
+dispatcher = Dispatcher()
+dispatcher.subscribe(my_historian_writer)
+```
+
+**Conceptual flow:**
+
+```
+PLC Emulator → Process Values → [This FEP] → PointValue stream → Lifecycle Sim
+                                    ↓
+                              Quality flags
+                              Timestamps
+                              Sequence numbers
+                                    ↓
+                              Historian / Alarms
+```
+
+The FEP adds the **operational concerns** (communications reliability, quality classification, normalization) that bridge device-level simulation and enterprise-level analytics.
+
+## Limitations and possible extensions
+
+### Current limitations
+
+- **No real industrial protocols**
+  This project uses a custom JSON line protocol. It does not implement Modbus TCP/RTU, DNP3, IEC 60870-5-104, OPC UA, or vendor-specific protocols.
+
+- **No security / authentication**
+  No TLS, no user authentication, no role-based access control. Suitable for demos and development only.
+
+- **Single-process, in-memory only**
+  All state (endpoint configs, point history, queue) is in-memory. No persistence, no distributed deployment, no high availability.
+
+- **No redundancy / failover**
+  Real FEPs have redundant communication paths, backup servers, and automatic failover. This demo is single-threaded.
+
+- **Simplified quality model**
+  Real SCADA systems have complex quality inheritance (source quality, communications quality, device quality, override quality). This demo uses a simplified two-level model.
+
+### Possible extensions
+
+**Protocol adapters:**
+- Plug in a real **Modbus TCP** driver behind the polling engine interface
+- Add **DNP3** support using pydnp3 or dnp3-python
+- Integrate **OPC UA** client using asyncua
+- Support **IEC 60870-5-104** for substation automation
+
+**Persistence and scalability:**
+- Write point updates to **TimescaleDB** or **InfluxDB** for historical trending
+- Use **Redis** for shared state across multiple FEP instances
+- Implement **HA / failover** with primary/standby FEP pairs
+
+**Observability:**
+- Expose metrics via **Prometheus** (poll counts, failure rates, queue depth, RTT percentiles)
+- Add **structured logging** with correlation IDs for debugging
+- Implement **distributed tracing** (OpenTelemetry) for multi-hop data flows
+
+**Operator interface:**
+- Add **manual point forcing** via web UI or API
+- Implement **on-demand polls** (poll a specific endpoint immediately)
+- Add **configuration management** (add/remove endpoints without restart)
+- Support **alarm acknowledgment** workflow
+
+**Advanced quality handling:**
+- Implement **quality inheritance** (bad input → bad calculation)
+- Add **manual quality override** (force GOOD for maintenance)
+- Support **quality propagation** through calculations
+
+**Integration examples:**
+- Connect to a **PLC logic simulator** (OpenPLC, Beremiz) via Modbus TCP
+- Feed data to a **point lifecycle simulator** for state machine execution
+- Export to **Grafana** dashboards for visualization
+- Integrate with **alarm notification** systems (email, SMS, Slack)
+
+## Tests
+
+Run the test suite to verify protocol encoding, quality classification, and polling engine behavior:
 
 ```bash
-cd scada-comms-fep
 pytest tests/ -v
 ```
 
-Tests cover:
-- Protocol encoding/decoding and round-trip
-- Quality classification logic
-- Polling engine integration with virtual endpoints
+**Test coverage:**
+- Protocol encoding/decoding (round-trip tests)
+- Quality model classification logic (HEALTHY/DEGRADED/COMM_LOSS → quality flags)
+- Polling engine integration with virtual endpoints (timeouts, retries, state updates)
 
-## Design Principles
+All 18 tests should pass.
 
-### 1. Separation of Concerns
+## Project structure
 
-- **Protocol** is independent of transport (could swap TCP for serial, UDP, etc.)
-- **Quality classification** is independent of protocol
-- **Polling engine** is decoupled from downstream consumers via dispatcher
-
-### 2. Testability
-
-- Virtual endpoints allow testing without hardware
-- Quality model has pure functions (easy to unit test)
-- Protocol has clear encode/decode separation
-
-### 3. Industrial Realism
-
-- Quality flags match OPC UA / IEC 61850 semantics
-- RTT tracking and health monitoring
-- Device clock drift awareness
-- Retry and timeout strategies
-
-### 4. Extensibility
-
-Clear integration points for:
-
-```python
-# Attach downstream systems
-dispatcher.attach_historian(my_historian_handler)
-dispatcher.attach_point_lifecycle(my_lifecycle_sim)
-dispatcher.attach_alarm_engine(my_alarm_handler)
 ```
-
-## Integration with Other Systems
-
-This FEP is designed to feed:
-
-1. **Point Lifecycle Simulator**: Receives PointValue updates to drive lifecycle transitions
-2. **Historian**: Time-series storage of process data
-3. **Alarm Engine**: Monitors quality and limits
-
-The dispatcher provides the integration seam:
-
-```python
-async def my_historian(updates: List[PointValue]):
-    for upd in updates:
-        if upd.quality == QualityFlag.GOOD:
-            await store_to_timeseries(upd)
-
-dispatcher.attach_historian(my_historian)
+scada-comms-fep/
+├── fep/                      # Core FEP modules
+│   ├── models.py             # Data models (PointValue, QualityFlag)
+│   ├── quality.py            # Quality classification logic
+│   ├── timebase.py           # UTC timestamp utilities
+│   ├── protocol.py           # JSON line protocol encode/decode
+│   ├── endpoint_sim.py       # Virtual RTU/PLC TCP servers
+│   ├── poller.py             # Polling engine with retry logic
+│   └── dispatcher.py         # Async queue + pub/sub
+├── ui/
+│   └── console.py            # Terminal diagnostics UI
+├── web/                      # Web dashboard
+│   ├── state.py              # Web state manager
+│   ├── server.py             # FastAPI + WebSocket server
+│   └── static/               # HTML, CSS, JavaScript
+│       ├── index.html
+│       ├── styles.css
+│       └── app.js
+├── examples/
+│   ├── run_demo.py           # Console demo
+│   └── run_web_demo.py       # Web UI demo
+├── tests/
+│   ├── test_protocol.py      # Protocol tests
+│   ├── test_quality.py       # Quality model tests
+│   └── test_polling_loop.py  # Polling engine integration tests
+├── pyproject.toml            # Project metadata + dependencies
+└── README.md                 # This file
 ```
-
-## Technical Highlights
-
-### Quality Classification Logic
-
-Maps concrete network conditions to abstract quality:
-
-1. **Communications State**: `failures + timeout → HEALTHY/DEGRADED/COMM_LOSS`
-2. **Point Quality**: `comms_state + sample_age → quality flag`
-
-This two-level approach matches real SCADA systems where:
-- Endpoint health is tracked independently
-- Individual points may have different quality despite same comms state
-
-### Polling Engine
-
-Demonstrates industrial patterns:
-
-- **Per-endpoint state machines**: Each endpoint has independent retry counters, health state
-- **Configurable poll rates**: Different endpoints can poll at different rates
-- **Priority field**: Ready for priority-based scheduling
-- **Diagnostics hooks**: Non-blocking callbacks for monitoring
-
-### Protocol Design
-
-Intentionally simple to focus on **semantics over parsing**:
-
-- Text-based (JSON) for readability
-- Newline-framed for simple streaming
-- Device timestamp included for SOE/drift detection
-- Sequence numbers for duplicate detection
-
-In production, you'd use Modbus, DNP3, IEC 60870-5-104, etc. The abstraction layers (quality, polling, dispatch) remain the same.
-
-## Performance Characteristics
-
-Tested with:
-- 100+ concurrent endpoints
-- Sub-second poll rates
-- Queue depths < 10 under normal load
-
-Designed for:
-- Thousands of points across dozens of endpoints
-- Not designed for microsecond-latency requirements
-- Suitable for typical SCADA poll rates (100ms - 5s)
-
-## Future Enhancements
-
-Potential additions:
-
-1. **Priority-based scheduling**: Use `priority` field in EndpointPollConfig
-2. **Adaptive polling**: Adjust poll rate based on value change rate
-3. **Clock synchronization**: Estimate and correct device clock drift
-4. **Alarm on quality transitions**: Trigger alarms on GOOD → BAD transitions
-5. **Historian integration**: Store to InfluxDB or TimescaleDB
-6. **Web dashboard**: Replace console with web UI (FastAPI + WebSocket)
-7. **Real protocol support**: Modbus TCP, DNP3, or OPC UA adapter
 
 ## License
 
@@ -343,4 +424,8 @@ Demonstration code for educational and portfolio purposes.
 
 ## Contact
 
-Built as part of a SCADA systems engineering portfolio.
+Built as part of a SCADA systems engineering portfolio demonstrating:
+- Industrial communications patterns
+- Async I/O and concurrent polling
+- Quality classification and normalization
+- Real-time data dispatch and monitoring
