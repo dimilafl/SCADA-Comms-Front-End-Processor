@@ -45,6 +45,27 @@ h1 {
   font-size: 1.1rem;
 }
 
+.playground-link {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(95, 211, 138, 0.2), rgba(0, 212, 255, 0.2));
+  border: 2px solid rgba(95, 211, 138, 0.5);
+  border-radius: 8px;
+  color: #5fd38a;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px rgba(95, 211, 138, 0.2);
+}
+
+.playground-link:hover {
+  background: linear-gradient(135deg, rgba(95, 211, 138, 0.3), rgba(0, 212, 255, 0.3));
+  border-color: #5fd38a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(95, 211, 138, 0.4);
+}
+
 main {
   padding: 1.5rem;
   max-width: 1600px;

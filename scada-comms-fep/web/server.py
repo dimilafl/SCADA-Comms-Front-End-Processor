@@ -71,6 +71,14 @@ async def index():
         return f.read()
 
 
+@app.get("/playground", response_class=HTMLResponse)
+async def playground():
+    """Serve the particle explosion playground page."""
+    playground_path = os.path.join(static_dir, "playground.html")
+    with open(playground_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 @app.get("/api/diagnostics")
 async def get_diagnostics():
     """Get current diagnostics snapshot."""
